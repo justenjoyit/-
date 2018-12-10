@@ -1,5 +1,11 @@
 # RocketMQ主从同步
 
+> 参考：
+>
+> 1. https://www.2cto.com/kf/201803/730566.html
+>
+> 2. http://www.cnblogs.com/sunshine-2015/p/8998549.html
+
 ## 一. 启动
 
 1.1 BrokerStartup中开始
@@ -167,7 +173,13 @@ public void start() throws Exception {
 
 ## 三. Master处理逻辑
 
-### 3.1 AYSN_MASTER处理逻辑
+### 3.1 ASYNC_MASTER处理逻辑
+
+1. salve连接到master，向master上报slave当前的offset
+2. master收到后确认给slave发送数据的开始位置
+3. master查询开始位置对应的MappedFIle
+4. master将查找到的数据发送给slave
+5. slave收到数据后保存到自己的CommitLog
 
 3.1.1 DefaultMessageStore
 
@@ -356,5 +368,90 @@ private void doWaitTransfer() {
                     }
           ……
         }
+```
+
+### 3.2 SYNC_MASTER处理逻辑
+
+1. master将需要传输到slave的数据构造为GroupCommitRequest交给GroupTransferService
+2. 唤醒传输数据的线程（如果没有更多数据需要传输的的时候HAClient.run会等待新的消息）
+3. 等待当前的传输请求完成
+
+SYNC_MASTER和ASYNC_MASTER传输数据到salve的过程是一致的，只是时机上不一样。SYNC_MASTER接收到producer发送来的消息时候，会同步等待消息也传输到salve。
+
+以下为和ASYNC_MASTER不同的地方
+
+3.2.1 DefaultMessageStore
+
+```java
+public void start() throws Exception {
+……
+        if (this.scheduleMessageService != null && SLAVE != messageStoreConfig.getBrokerRole()) {
+            //当为MASTER时
+            this.scheduleMessageService.start();
+        }
+……
+    //和ASYNC_MASTER一样
+    }
+```
+
+3.2.2 ScheduleMessageService
+
+```java
+public void start() {
+……
+    //延时消息
+                this.timer.schedule(new DeliverDelayedMessageTimerTask(level, offset), FIRST_DELAY_TIME);
+……
+    }
+```
+
+3.2.3 DeliverDelayedMessageTimerTask
+
+```java
+@Override
+        public void run() {
+         ……
+                this.executeOnTimeup();
+            ……
+        }
+
+public void executeOnTimeup() {
+          ……
+		 PutMessageResult putMessageResult =ScheduleMessageService.this.defaultMessageStore.putMessage(msgInner);
+……
+        }
+```
+
+3.2.4 DefaultMessageStore
+
+```java
+public PutMessageResult putMessage(MessageExtBrokerInner msg) {
+  ……
+        //存入commitLog
+        PutMessageResult result = this.commitLog.putMessage(msg);
+……
+    }
+```
+
+3.2.5 CommitLog
+
+```java
+public PutMessageResult putMessage(final MessageExtBrokerInner msg) {
+   ……
+        //主从同步
+        handleHA(result, putMessageResult, msg);
+……
+ }
+        
+public void handleHA(AppendMessageResult result, PutMessageResult putMessageResult, MessageExt messageExt) {
+    //如果是SYNC_MASTER才会执行如下操作
+        if (BrokerRole.SYNC_MASTER == this.defaultMessageStore.getMessageStoreConfig().getBrokerRole()) {
+            ……
+           //唤醒所有等待线程
+                    service.putRequest(request);
+                    service.getWaitNotifyObject().wakeupAll();
+                   ……
+        }
+}
 ```
 
