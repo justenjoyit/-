@@ -1,7 +1,3 @@
----
-typora-copy-images-to: images
----
-
 # RocketMQ主从同步
 
 > 参考：
@@ -460,5 +456,3 @@ public void handleHA(AppendMessageResult result, PutMessageResult putMessageResu
 ```
 
 以上可以看出，当SYNC_MASTER进行刷盘后会等待SLAVE完成，才会进行后续操作
-
-![20180319111709386](./images/20180319111709386.png)
