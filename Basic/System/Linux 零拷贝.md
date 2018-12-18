@@ -1,5 +1,9 @@
 # Linux 零拷贝
 
+> https://blog.csdn.net/u013018618/article/details/80146617
+>
+> https://blog.csdn.net/hzrandd/article/details/51025341
+
 零拷贝可以在某种程度上减少甚至避免不必要的CPU数据拷贝操作。
 
 ## 1. 传统方式
