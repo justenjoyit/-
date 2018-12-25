@@ -87,9 +87,9 @@ b、`tail -f ~/logs/rocketmqlogs/namesrv.log`
 
 ### 3.2、分别启动broker，主机使用broker-a.properties启动，虚拟机使用broker-b.properties启动
 
-a、主机上执行 `nohup sh bin/mqbroker -c conf/2m-noslave/broker-a.properties > 2>&1 &`
+a、主机上执行 `nohup sh bin/mqbroker -c conf/2m-noslave/broker-a.properties 2>&1 &`
 
-b、虚拟机上执行 `nohup sh bin/mqbroker -c conf/2m-noslave/broker-b.properties > 2>&1 &`
+b、虚拟机上执行 `nohup sh bin/mqbroker -c conf/2m-noslave/broker-b.properties 2>&1 &`
 
 c、可以通过 `tail -f ~/logs/rocketmqlogs/broker.log `查看执行日志
 
