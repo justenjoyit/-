@@ -73,10 +73,10 @@
    （2）`(n - 1) & hash`，除去所有高位，剩下所有低位
 
    ![扰动函数](./images/扰动函数.jpg)
+   
 
-5.**tableSizeFor函数**
-
-```java
+5.**tableSizeFor函数** 
+   ```java
 static final int tableSizeFor(int cap) {
     int n = cap - 1;
     n |= n >>> 1;
@@ -86,8 +86,7 @@ static final int tableSizeFor(int cap) {
     n |= n >>> 16;
     return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
 }
-```
-
+   ```
 用来获得比cap大的最小2的倍数
 
 ![扩容](./images/扩容.jpg)
@@ -99,4 +98,69 @@ static final int tableSizeFor(int cap) {
    transient Set<Map.Entry<K,V>> entrySet;
    ```
 
-transient表示该域不会被串行化（序列化），因为key在hash后映射到对应桶，由于不同JVM在执行object.hashCode()的处理方式可能是不一样的，该方法是native方法，所以可能导致同样的key在不同JVM中可能会映射到不同的桶，如果在不同JVM对该域进行反序列化的时候可能会出现严重错误。
+	transient表示该域不会被串行化（序列化），因为key在hash后映射到对应桶，由于不同JVM在执行object.hashCode()的处理方式可能是不一样的，该方法是native方法，所以可能导致同样的key在不同JVM中可能会映射到不同的桶，如果在不同JVM对该域进行反序列化的时候可能会出现严重错误。
+
+7. getNode(int hash,Object key)
+	```java
+	((k = first.key) == key || (key != null && key.equals(k)))
+	```
+
+	先直接判断地址，如果地址相同则直接判断成功；不同再调用equals方法进行判断内容是否相同
+	
+8. putVal()
+	```java
+	for (int binCount = 0; ; ++binCount) {
+                    if ((e = p.next) == null) {
+                        p.next = newNode(hash, key, value, null);
+                        if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                            treeifyBin(tab, hash);
+                        break;
+                    }
+                    if (e.hash == hash &&
+                        ((k = e.key) == key || (key != null && key.equals(k))))
+                        break;
+                    p = e;
+                }
+	```
+	采用尾插法
+	
+9. resize()方法
+	```java
+	Node<K,V> loHead = null, loTail = null;
+                        Node<K,V> hiHead = null, hiTail = null;
+                        Node<K,V> next;
+                        do {
+                            next = e.next;
+                            //在新数组中还将在原下标处
+                            if ((e.hash & oldCap) == 0) {
+                                if (loTail == null)
+                                    loHead = e;
+                                else
+                                    loTail.next = e;
+                                loTail = e;
+                            }
+                            //在新数组中会在下标为j+oldCap处
+                            else {
+                                if (hiTail == null)
+                                    hiHead = e;
+                                else
+                                    hiTail.next = e;
+                                hiTail = e;
+                            }
+                        } while ((e = next) != null);
+                        if (loTail != null) {
+                            loTail.next = null;
+                            newTab[j] = loHead;
+                        }
+                        if (hiTail != null) {
+                            hiTail.next = null;
+                            newTab[j + oldCap] = hiHead;
+                        }
+	```
+对原链表进行再hash时，因为数组大小是原数组大小的2倍，在进行e.hash&(n-1)和e.hash&(n<<1-1)计算的时候只有一位的差别:
+	1111 & 0011 = 0011
+	1111 & 0111 = 0111
+所以如果`if ((e.hash & oldCap) == 0)`，该节点在新数组中还是会在原下标，否则就会在j+oldCap新下标中。由于原链表中的节点只会在这两个下标里面，且不会相互影响，所以在最后可以直接赋值。
+
+10. clone()
+	浅复制
